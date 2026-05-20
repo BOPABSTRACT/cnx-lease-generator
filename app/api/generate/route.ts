@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx'
 import PizZip from 'pizzip'
 import JSZip from 'jszip'
 
+export const maxDuration = 60
+
 function extractSheetData(sheet: XLSX.WorkSheet) {
   const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as string[][]
 
@@ -77,6 +79,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing excel or template files' }, { status: 400 })
     }
 
+    // Validate template files are not empty
+    for (const tf of templateFiles) {
+      if (tf.size === 0) {
+        return NextResponse.json({ error: `Template file "${tf.name}" appears to be empty or corrupted. Please re-upload.` }, { status: 400 })
+      }
+    }
+
     const sheetIndices: number[] = selectedSheets === 'all'
       ? []
       : selectedSheets.split(',').map(Number)
@@ -104,6 +113,11 @@ export async function POST(req: NextRequest) {
 
       for (const templateFile of templateFiles) {
         const templateBuffer = Buffer.from(await templateFile.arrayBuffer())
+
+        if (templateBuffer.length === 0) {
+          return NextResponse.json({ error: `Template "${templateFile.name}" is empty.` }, { status: 400 })
+        }
+
         const templateName = templateFile.name.replace('.docx', '')
 
         let docxBuffer: Buffer
